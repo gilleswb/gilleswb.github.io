@@ -1,0 +1,58 @@
+name: Deploy & Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check HTML structure
+        run: |
+          echo "Checking for required semantic elements..."
+          grep -q '<header' index.html && echo "✓ header found"
+          grep -q '<nav' index.html && echo "✓ nav found"
+          grep -q '<main' index.html && echo "✓ main found"
+          grep -q '<footer' index.html && echo "✓ footer found"
+          grep -q 'role="banner"' index.html && echo "✓ ARIA banner"
+          grep -q 'role="navigation"' index.html && echo "✓ ARIA navigation"
+          grep -q 'role="main"' index.html && echo "✓ ARIA main"
+          grep -q 'role="contentinfo"' index.html && echo "✓ ARIA contentinfo"
+
+      - name: Check referenced files exist
+        run: |
+          echo "Checking file references..."
+          test -f css/styles.css && echo "✓ css/styles.css"
+          test -f js/main.js && echo "✓ js/main.js"
+          test -f data/GillesBassole_Resume_2025_AMZN.pdf && echo "✓ Resume PDF"
+          test -f images/1000072407.jpg && echo "✓ Favicon image"
+
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
